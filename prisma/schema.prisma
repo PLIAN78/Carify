@@ -1,0 +1,39 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Car {
+  id        String   @id @default(cuid())
+  make      String
+  model     String
+  year      Int
+  createdAt DateTime @default(now())
+
+  claims    Claim[]
+}
+
+model Claim {
+  id            String   @id @default(cuid())
+  carId         String
+  car           Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  authorWallet  String?
+  text          String
+
+  evidenceUrls  String   @default("[]")
+  claimHash     String?
+  evidenceHash  String?
+
+  proofQuality  Float    @default(0)
+  status        String   @default("unverified")
+
+  geminiJson    String?
+  txSig         String?
+
+  createdAt     DateTime @default(now())
+}
