@@ -62,8 +62,15 @@ async function createClaim(payload: Omit<Claim, "createdAt">) {
 
 export const api = {
   listCars: () => apiFetch<{ cars: Car[] }>("/cars"),
-  getClaims: (carId: string) => apiFetch<{ claims: Claim[] }>(`/cars/${carId}/claims`),
-  explain: (carId: string) => apiFetch<{ explanation: string }>(`/cars/${carId}/explain`),
+
+  // ✅ ADD THIS
+  getCar: (carId: string) => apiFetch<{ car: Car }>(`/cars/${encodeURIComponent(carId)}`),
+
+  getClaims: (carId: string) =>
+    apiFetch<{ claims: Claim[] }>(`/cars/${encodeURIComponent(carId)}/claims`),
+
+  explain: (carId: string) =>
+    apiFetch<{ explanation: string }>(`/cars/${encodeURIComponent(carId)}/explain`),
 
   uploadImage,
   createClaim,

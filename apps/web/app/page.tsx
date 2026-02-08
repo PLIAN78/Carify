@@ -1,10 +1,12 @@
 "use client";
 
-const words = ["Verifiable", "Car", "Reputation"];
-
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api, Car } from "@/lib/api";
+
+// ✅ Inline fallback (no /public file needed, no 404 spam)
+const FALLBACK =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400'%3E%3Crect width='100%25' height='100%25' fill='%23111111'/%3E%3Ctext x='50%25' y='50%25' fill='%23aaaaaa' font-size='28' font-family='Arial' dominant-baseline='middle' text-anchor='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
 export default function HomePage() {
   const [cars, setCars] = useState<Car[]>([]);
@@ -32,6 +34,31 @@ export default function HomePage() {
     );
   }, [cars, q]);
 
+  // ✅ backend is on 3001 (based on your logs)
+  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(
+    /\/$/,
+    ""
+  );
+
+  function resolveCarImage(c: Car) {
+    const raw = (c.imageUrl || "").trim();
+    if (!raw) return FALLBACK;
+
+    // already absolute (http/https)
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    // normalize to start with "/"
+    let p = raw.startsWith("/") ? raw : `/${raw}`;
+
+    // ✅ your logs show requests like /api/uploads/... but Express serves /uploads/...
+    // so if DB has "/api/uploads/...", strip the "/api"
+    if (p.startsWith("/api/uploads/")) {
+      p = p.replace("/api", "");
+    }
+
+    return `${API_BASE}${p}`;
+  }
+
   return (
     <div className="relative overflow-hidden rounded-[28px] border border-neutral-800/80 bg-neutral-850/40">
       {/* Steel base */}
@@ -54,7 +81,7 @@ export default function HomePage() {
                    rgba(255,255,255,0.10),
                    transparent_60%)]"
       />
-    
+
       {/* Content wrapper */}
       <div className="relative space-y-10 p-6 sm:p-8">
         {/* Hero */}
@@ -69,9 +96,8 @@ export default function HomePage() {
           </h1>
 
           <p className="max-w-2xl text-base leading-relaxed text-neutral-300">
-            Rankings built from{" "}
-            <span className="text-white">claims with proof hashes</span>, not
-            sponsored opinions. AI summarizes only what’s provided—no hallucinated
+            Rankings built from <span className="text-white">claims with proof hashes</span>,
+            not sponsored opinions. AI summarizes only what’s provided—no hallucinated
             “reviews.”
           </p>
         </section>
@@ -145,79 +171,67 @@ export default function HomePage() {
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map((c) => (
-                  <Link
-                    key={c.carId}
-                    href={`/cars/${c.carId}`}
-                    className="group rounded-3xl border border-neutral-800 bg-neutral-900/70 p-5 transition hover:border-neutral-600 hover:bg-neutral-900"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="text-lg font-semibold tracking-tight text-neutral-100">
-                          {c.year} {c.make} {c.model}
+                {filtered.map((c) => {
+                  const imgSrc = resolveCarImage(c);
+
+                  return (
+                    <Link
+                      key={c.carId}
+                      href={`/cars/${c.carId}`}
+                      className="group rounded-3xl border border-neutral-800 bg-neutral-900/70 p-5 transition hover:border-neutral-600 hover:bg-neutral-900"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="text-lg font-semibold tracking-tight text-neutral-100">
+                            {c.year} {c.make} {c.model}
+                          </div>
+                          <div className="mt-1 text-xs text-neutral-500 font-mono">
+                            {c.carId}
+                          </div>
                         </div>
-                        <div className="mt-1 text-xs text-neutral-500 font-mono">
-                          {c.carId}
+
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="rounded-full border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-200">
+                            Score <span className="text-white">82</span>
+                          </span>
+                          <span className="rounded-full border border-emerald-900/60 bg-emerald-950/30 px-2.5 py-1 text-xs text-emerald-200">
+                            Verified
+                          </span>
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-2">
-                        <span className="rounded-full border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-200">
-                          Score <span className="text-white">82</span>
+                      <img
+                        src={imgSrc}
+                        alt={`${c.make} ${c.model}`}
+                        style={{
+                          width: "100%",
+                          height: 160,
+                          objectFit: "cover",
+                          borderRadius: 12,
+                          marginTop: 16,
+                        }}
+                        onError={(e) => {
+                          e.currentTarget.src = FALLBACK;
+                        }}
+                      />
+
+                      <p className="mt-4 text-sm leading-relaxed text-neutral-300">
+                        View claims, on-chain proof hashes, and an AI explanation summary.
+                      </p>
+
+                      <div className="mt-4 inline-flex items-center gap-2 text-xs text-neutral-400">
+                        <span className="rounded-full bg-neutral-800 px-2 py-1">claims</span>
+                        <span className="rounded-full bg-neutral-800 px-2 py-1">
+                          proof hashes
                         </span>
-                        <span className="rounded-full border border-emerald-900/60 bg-emerald-950/30 px-2.5 py-1 text-xs text-emerald-200">
-                          Verified
+                        <span className="rounded-full bg-neutral-800 px-2 py-1">AI explain</span>
+                        <span className="ml-auto text-neutral-500 group-hover:text-neutral-300 transition">
+                          View →
                         </span>
                       </div>
-                    </div>
-                      {(() => {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-  const imgSrc =
-    c.imageUrl && c.imageUrl.startsWith("http")
-      ? c.imageUrl
-      : c.imageUrl
-      ? `${apiBase}${c.imageUrl}`
-      : "/placeholder-car.png";
-
-  return (
-    <img
-      src={imgSrc}
-      alt={`${c.make} ${c.model}`}
-      style={{
-        width: "100%",
-        height: 160,
-        objectFit: "cover",
-        borderRadius: 12,
-        marginTop: 16,
-      }}
-      onError={(e) => {
-        e.currentTarget.src = "/placeholder-car.png";
-      }}
-    />
-  );
-})()}
-
-                    <p className="mt-4 text-sm leading-relaxed text-neutral-300">
-                      View claims, on-chain proof hashes, and an AI explanation
-                      summary.
-                    </p>
-
-                    <div className="mt-4 inline-flex items-center gap-2 text-xs text-neutral-400">
-                      <span className="rounded-full bg-neutral-800 px-2 py-1">
-                        claims
-                      </span>
-                      <span className="rounded-full bg-neutral-800 px-2 py-1">
-                        proof hashes
-                      </span>
-                      <span className="rounded-full bg-neutral-800 px-2 py-1">
-                        AI explain
-                      </span>
-                      <span className="ml-auto text-neutral-500 group-hover:text-neutral-300 transition">
-                        View →
-                      </span>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
 
               {filtered.length === 0 && (
