@@ -1,63 +1,52 @@
 import { Router } from "express";
-import { Reputation } from "../models/Reputation.js";
+import { Claim } from "../models/Claim.js";
 
 const router = Router();
 
-// Create reputation record
-router.post("/", async (req, res) => {
+const CATEGORY_PENALTY = {
+  reliability: 6,
+  ownership_cost: 4,
+  efficiency: 3,
+  comfort: 2,
+  safety: 5,
+};
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function computeCarScore(claims) {
+  let score = 70;
+
+  for (const c of claims) {
+    const basePenalty = CATEGORY_PENALTY[c.category] || 2;
+
+    let multiplier = 1;
+    if (c.attachments?.length > 0) multiplier += 0.2;
+    if (c.solana?.txSignature) multiplier += 0.2;
+
+    score -= basePenalty * multiplier;
+  }
+
+  return clamp(Math.round(score), 30, 95);
+}
+
+// GET /reputation/car/:carId
+router.get("/car/:carId", async (req, res) => {
   try {
-    const { subjectId, score, breakdown } = req.body;
+    const carId = String(req.params.carId);
 
-    if (!subjectId || score === undefined) {
-      return res.status(400).json({ error: "subjectId and score are required" });
-    }
+    const claims = await Claim.find({ carId });
+    const score = computeCarScore(claims);
 
-    const doc = await Reputation.create({
-      subjectType: "car",
-      subjectId,
+    res.json({
+      carId,
       score,
-      breakdown,
-      source: "manual",
+      claimCount: claims.length,
     });
-
-    res.status(201).json(doc);
   } catch (err) {
-    console.error(err);
+    console.error("GET /reputation/car failed:", err);
     res.status(500).json({ error: "Internal server error" });
-  }
-});
-// Get latest reputation by subjectId (e.g., VIN)
-router.get("/by-subject/:subjectId", async (req, res) => {
-  try {
-    const doc = await Reputation.findOne({ subjectId: req.params.subjectId })
-      .sort({ createdAt: -1 });
-
-    if (!doc) return res.status(404).json({ error: "Not found" });
-    res.json(doc);
-  } catch (err) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-router.get("/by-subject/:subjectId", async (req, res) => {
-  try {
-    const doc = await Reputation.findOne({ subjectId: req.params.subjectId })
-      .sort({ createdAt: -1 });
-
-    if (!doc) return res.status(404).json({ error: "Not found" });
-    res.json(doc);
-  } catch (err) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Get reputation by Mongo _id
-router.get("/:id", async (req, res) => {
-  try {
-    const doc = await Reputation.findById(req.params.id);
-    if (!doc) return res.status(404).json({ error: "Not found" });
-    res.json(doc);
-  } catch (err) {
-    res.status(400).json({ error: "Invalid id" });
   }
 });
 

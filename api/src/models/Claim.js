@@ -1,18 +1,22 @@
+// api/src/models/Claim.js
 import mongoose from "mongoose";
 
 const ClaimSchema = new mongoose.Schema(
   {
     carId: { type: String, required: true, index: true },
-
-    category: {
-      type: String,
-      enum: ["reliability", "ownership_cost", "comfort", "efficiency", "safety"],
-      required: true,
-    },
-
+    category: { type: String, required: true },
     statement: { type: String, required: true },
     evidenceSummary: { type: String, required: true },
     evidenceUrl: { type: String, default: "" },
+
+    attachments: [
+      {
+        url: { type: String, required: true }, // /uploads/xxx
+        originalName: { type: String, default: "" },
+        mimeType: { type: String, default: "" },
+        size: { type: Number, default: 0 },
+      },
+    ],
 
     contributor: {
       type: {
@@ -24,18 +28,23 @@ const ClaimSchema = new mongoose.Schema(
       wallet: { type: String, default: "" },
     },
 
-    canonical: { type: String, default: "" },
-
+    canonical: { type: String, required: true },
     proof: {
-      hash: { type: String, default: "" },
+      hash: { type: String, required: true },
     },
 
     solana: {
-      programId: { type: String, default: "" },
-      proofPda: { type: String, default: "" },
-      txSignature: { type: String, default: "" },
-      nonce: { type: Number, default: 0 },
-      wallet: { type: String, default: "" },
+      programId: String,
+      proofPda: String,
+      txSignature: String,
+      nonce: Number,
+      wallet: String,
+    },
+
+    nonces: {
+      type: Map,
+      of: Number,
+      default: {},
     },
   },
   { timestamps: true }

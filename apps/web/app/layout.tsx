@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               href="/"
               className="text-xl font-semibold tracking-tight text-white"
             >
-              AutoTrust
+              Carify
             </Link>
 
             <nav className="flex items-center gap-4 text-sm text-neutral-300">

@@ -1,5 +1,5 @@
 {
-  "name": "autotrust",
+  "name": "carify",
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm --prefix api run dev\" \"npm --prefix apps/web run dev\"",

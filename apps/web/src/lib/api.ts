@@ -1,5 +1,3 @@
-// web/src/lib/api.ts
-
 export type ClaimCategory =
   | "reliability"
   | "ownership_cost"
@@ -10,11 +8,19 @@ export type ClaimCategory =
 export type ContributorType = "owner" | "mechanic" | "expert";
 
 export type Car = {
-  _id: string;
+  carId: string;
   make: string;
   model: string;
   year: number;
   imageUrl?: string;
+};
+
+export type UploadedFile = {
+  url: string; // /uploads/<filename>
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
 };
 
 export type Claim = {
@@ -24,6 +30,12 @@ export type Claim = {
   statement: string;
   evidenceSummary: string;
   evidenceUrl?: string;
+  attachments?: Array<{
+    url: string;
+    originalName?: string;
+    mimeType?: string;
+    size?: number;
+  }>;
   contributor: {
     type: ContributorType;
     displayName: string;
@@ -47,6 +59,12 @@ export type CreateClaimInput = {
   statement: string;
   evidenceSummary: string;
   evidenceUrl?: string;
+  attachments?: Array<{
+    url: string;
+    originalName?: string;
+    mimeType?: string;
+    size?: number;
+  }>;
   contributor: {
     type: ContributorType;
     displayName: string;
@@ -112,6 +130,23 @@ export const api = {
     });
   },
 
+  async uploadFiles(files: File[]): Promise<{ files: UploadedFile[] }> {
+    const form = new FormData();
+    for (const f of files) form.append("files", f);
+
+    const res = await fetch(`${baseUrl}/uploads`, {
+      method: "POST",
+      body: form, // IMPORTANT: do NOT set Content-Type manually
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Upload failed ${res.status}: ${text}`);
+    }
+
+    return (await res.json()) as { files: UploadedFile[] };
+  },
+
   async getNextNonce(params: {
     claimId: string;
     wallet: string;
@@ -142,7 +177,13 @@ export const api = {
       }
     );
   },
+    async getCarScore(carId: string): Promise<{ score: number; claimCount: number }> {
+    return fetchJson<{ score: number; claimCount: number }>(
+      `/reputation/car/${encodeURIComponent(carId)}`
+    );
+  },
 
+  
   async explainCar(carId: string): Promise<{ explanation: string }> {
     return fetchJson<{ explanation: string }>(
       `/cars/${encodeURIComponent(carId)}/explain`,

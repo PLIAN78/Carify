@@ -8,21 +8,68 @@ import { api, Car } from "@/lib/api";
 const FALLBACK =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='400'%3E%3Crect width='100%25' height='100%25' fill='%23111111'/%3E%3Ctext x='50%25' y='50%25' fill='%23aaaaaa' font-size='28' font-family='Arial' dominant-baseline='middle' text-anchor='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
+type ScoreInfo = { score: number; claimCount: number };
+
 export default function HomePage() {
   const [cars, setCars] = useState<Car[]>([]);
   const [q, setQ] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // score map: carId -> score info
+  const [scores, setScores] = useState<Record<string, ScoreInfo>>({});
+  const [loadingScores, setLoadingScores] = useState(false);
+
   useEffect(() => {
     setErr(null);
     setLoading(true);
+
     api
       .listCars()
       .then((r) => setCars(r.cars))
       .catch((e) => setErr(e.message || "Failed to load cars"))
       .finally(() => setLoading(false));
   }, []);
+
+  // after cars load, fetch scores for each car
+  useEffect(() => {
+    if (cars.length === 0) return;
+
+    // only fetch scores we don't already have
+    const missing = cars.filter((c) => !scores[c.carId]);
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    setLoadingScores(true);
+
+    Promise.allSettled(missing.map((c) => api.getCarScore(c.carId)))
+      .then((results) => {
+        if (cancelled) return;
+
+        setScores((prev) => {
+          const next = { ...prev };
+          for (let i = 0; i < missing.length; i++) {
+            const carId = missing[i].carId;
+            const r = results[i];
+            if (r.status === "fulfilled") {
+              next[carId] = { score: r.value.score, claimCount: r.value.claimCount };
+            } else {
+              // if score endpoint fails for a car, don’t break UI
+              next[carId] = { score: 70, claimCount: 0 };
+            }
+          }
+          return next;
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingScores(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cars]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -34,11 +81,8 @@ export default function HomePage() {
     );
   }, [cars, q]);
 
-  // ✅ backend is on 3001 (based on your logs)
-  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(
-    /\/$/,
-    ""
-  );
+  // ✅ use api.baseUrl so you don’t drift between env vars
+  const API_BASE = (api.baseUrl || "http://localhost:3001").replace(/\/$/, "");
 
   function resolveCarImage(c: Car) {
     const raw = (c.imageUrl || "").trim();
@@ -50,13 +94,19 @@ export default function HomePage() {
     // normalize to start with "/"
     let p = raw.startsWith("/") ? raw : `/${raw}`;
 
-    // ✅ your logs show requests like /api/uploads/... but Express serves /uploads/...
-    // so if DB has "/api/uploads/...", strip the "/api"
+    // if DB has "/api/uploads/...", strip the "/api"
     if (p.startsWith("/api/uploads/")) {
       p = p.replace("/api", "");
     }
 
     return `${API_BASE}${p}`;
+  }
+
+  function scoreColor(score: number) {
+    if (score >= 85) return "border-emerald-900/60 bg-emerald-950/30 text-emerald-200";
+    if (score >= 70) return "border-blue-900/60 bg-blue-950/30 text-blue-200";
+    if (score >= 55) return "border-amber-900/60 bg-amber-950/30 text-amber-200";
+    return "border-red-900/60 bg-red-950/30 text-red-200";
   }
 
   return (
@@ -97,8 +147,7 @@ export default function HomePage() {
 
           <p className="max-w-2xl text-base leading-relaxed text-neutral-300">
             Rankings built from <span className="text-white">claims with proof hashes</span>,
-            not sponsored opinions. AI summarizes only what’s provided—no hallucinated
-            “reviews.”
+            not sponsored opinions. AI summarizes only what’s provided—no hallucinated “reviews.”
           </p>
         </section>
 
@@ -155,7 +204,7 @@ export default function HomePage() {
           <div className="flex items-end justify-between">
             <h2 className="text-sm font-medium text-neutral-200">Browse cars</h2>
             <div className="text-xs text-neutral-500">
-              Click a card to view claims & proof hashes
+              {loadingScores ? "Scoring…" : "Click a card to view claims & proof hashes"}
             </div>
           </div>
 
@@ -173,6 +222,9 @@ export default function HomePage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filtered.map((c) => {
                   const imgSrc = resolveCarImage(c);
+                  const s = scores[c.carId]; // may be undefined briefly
+                  const score = s?.score;
+                  const claimCount = s?.claimCount ?? 0;
 
                   return (
                     <Link
@@ -191,11 +243,22 @@ export default function HomePage() {
                         </div>
 
                         <div className="flex flex-col items-end gap-2">
-                          <span className="rounded-full border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-200">
-                            Score <span className="text-white">82</span>
+                          <span
+                            className={[
+                              "rounded-full border px-2.5 py-1 text-xs",
+                              score == null
+                                ? "border-neutral-700 bg-neutral-950 text-neutral-300"
+                                : scoreColor(score),
+                            ].join(" ")}
+                          >
+                            Score{" "}
+                            <span className="text-white">
+                              {score == null ? "…" : score}
+                            </span>
                           </span>
-                          <span className="rounded-full border border-emerald-900/60 bg-emerald-950/30 px-2.5 py-1 text-xs text-emerald-200">
-                            Verified
+
+                          <span className="rounded-full border border-neutral-700 bg-neutral-950 px-2.5 py-1 text-xs text-neutral-200">
+                            {claimCount} claim{claimCount === 1 ? "" : "s"}
                           </span>
                         </div>
                       </div>

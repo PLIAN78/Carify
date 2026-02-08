@@ -19,8 +19,7 @@ router.get("/:carId/claims", async (req, res) => {
 // 🚫 Deprecated: creating claims here causes ghost claims
 router.post("/:carId/claims", async (req, res) => {
   return res.status(410).json({
-    error:
-      "This endpoint is deprecated. Use POST /claims with { carId: <mongoId>, ... } instead.",
+    error: "This endpoint is deprecated. Use POST /claims with { carId: <mongoId>, ... } instead.",
   });
 });
 

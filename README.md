@@ -1,11 +1,11 @@
-# AutoTrust
+# Carify
 
 Worst vibe-coded project I’ve ever made.  
 Never doing TypeScript again (lying, but still mad).
 
-AutoTrust started as an idea to track car reputation and value **without external bias** — no brands pushing narratives, no dealerships cherry-picking reviews, no sponsored rankings pretending to be “objective”.
+Carify started as an idea to track car reputation and value **without external bias** — no brands pushing narratives, no dealerships cherry-picking reviews, no sponsored rankings pretending to be “objective”.
 
-Instead of opinions, AutoTrust focuses on **claims with evidence**.
+Instead of opinions, Carify focuses on **claims with evidence**.
 
 Users submit claims about cars (reliability, cost, safety, efficiency, etc.), attach supporting evidence, and those claims are:
 - stored off-chain  
@@ -45,9 +45,9 @@ Frontend and backend live in a monorepo because chaos builds character.
 
 # Hackathon stuff
 
-AutoTrust is an experiment in building car reputation without marketing bias.
+Carify is an experiment in building car reputation without marketing bias.
 
-Most car rankings are influenced by brands, dealerships, or sponsored narratives. AutoTrust flips that model by treating reputation as a collection of verifiable claims instead of opinions.
+Most car rankings are influenced by brands, dealerships, or sponsored narratives. Carify flips that model by treating reputation as a collection of verifiable claims instead of opinions.
 
 Each claim is tied to evidence, stored off-chain, and anchored with a cryptographic proof hash. Rather than asking users to trust a score, the system lets them inspect what was claimed, who claimed it, and what proof exists.
 
@@ -55,7 +55,7 @@ The goal is not to recommend cars, but to make reputation auditable.
 
 ---
 
-## What AutoTrust does
+## What Carify does
 
 - Lists cars by make, model, and year
 - Allows users to submit claims tied to a specific car
@@ -108,7 +108,7 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 
 ## Why this matters
 
-AutoTrust explores how reputation systems can be built around verifiability instead of persuasion.
+Carify explores how reputation systems can be built around verifiability instead of persuasion.
 
 The same structure can apply to products, services, or any domain where trust is currently shaped by incentives rather than evidence.
 
