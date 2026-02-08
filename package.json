@@ -1,38 +1,12 @@
 {
-  "name": "carify",
-  "version": "0.1.0",
+  "name": "autotrust",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "seed": "tsx prisma/seed.ts"
-  },
-  "dependencies": {
-    "@google/genai": "^1.40.0",
-    "@prisma/adapter-better-sqlite3": "^7.3.0",
-    "@prisma/client": "^7.3.0",
-    "better-sqlite3": "^12.6.2",
-    "dotenv": "^17.2.4",
-    "next": "16.1.6",
-    "prisma": "^7.3.0",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "zod": "^4.3.6",
-    "zod-to-json-schema": "^3.25.1"
+    "dev": "concurrently \"npm --prefix api run dev\" \"npm --prefix apps/web run dev\"",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:api": "npm --prefix api run dev"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4",
-    "ts-node": "^10.9.2",
-    "tsx": "^4.21.0",
-    "typescript": "^5"
+    "concurrently": "^9.0.0"
   }
 }
