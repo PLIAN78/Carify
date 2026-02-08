@@ -1,122 +1,63 @@
-# Carify
+## Inspiration
+(This is a solo project, building from my own inspo) 
+Buying a car is way more confusing than it should be. Prices are influenced by brand bias, dealership incentives, fake reviews, and vague "trust scores" that don't really explain why a car is considered good or bad. As users and builders, we wanted a way to evaluate cars based on transparent, community-backed signals instead of opaque ratings or centralized platforms.
 
-Worst vibe-coded project I’ve ever made.  
-Never doing TypeScript again (lying, but still mad).
+That idea turned into **Carify** — a system focused on trust, evidence, and accountability around car reputation.
 
-Carify started as an idea to track car reputation and value **without external bias** — no brands pushing narratives, no dealerships cherry-picking reviews, no sponsored rankings pretending to be “objective”.
+## What it does
 
-Instead of opinions, Carify focuses on **claims with evidence**.
+Carify is a car reputation and trust platform that allows users to:
 
-Users submit claims about cars (reliability, cost, safety, efficiency, etc.), attach supporting evidence, and those claims are:
-- stored off-chain  
-- anchored with cryptographic hashes  
-- designed to be auditable instead of persuasive  
+- Search and explore cars without brand-driven bias
+- Submit claims, reviews, and supporting evidence tied to specific vehicles
+- Build a reputation layer around cars using aggregated user contributions
+- See how a car's trust score evolves over time based on verified activity
 
-The goal isn’t to tell you *what to buy*.  
-It’s to let you inspect **what people are actually claiming**, where it came from, and whether it’s backed by anything real.
+Instead of a single rating, Carify focuses on *why* a car is trusted (user provides evidence).
 
----
+## How we built it
 
-## What this project does
+We split the project into a clean frontend–backend workflow.
 
-- Lists cars by make, model, and year  
-- Allows users to submit claims tied to a specific car  
-- Supports evidence uploads (images/docs)  
-- Anchors claims with proof hashes (Solana integration planned / stubbed)  
-- Separates reputation from marketing  
+- **Frontend:** A simple, fast web interface for searching cars, viewing reputation data, and submitting claims
+- **Backend:** REST APIs built with Node.js and Express to handle car data, reviews, claims, and evidence uploads
+- **Database:** MongoDB for flexible schema design around cars, claims, and reputation signals
+- **Architecture:** Designed around future extensibility for ranking algorithms and aggregation logic
 
-No star ratings.  
-No paid boosts.  
-No “top 10 cars you must buy”.
+The backend was structured to support future Web3 or decentralized trust extensions, even though the MVP stays lightweight.
 
----
+## Challenges we ran into
 
-## Tech stack (for better or worse)
+- Designing a reputation system that doesn't collapse into a single meaningless score
+- Handling schema evolution while iterating fast during a hackathon
+- Avoiding over-engineering while still planning for long-term scalability
+- Debugging deployment and environment mismatches under time pressure
 
-- Next.js (App Router)  
-- TypeScript (regrettably)  
-- Express + MongoDB  
-- File uploads served from the backend  
-- Web3-style proof anchoring (early stage)  
+A lot of time went into deciding what *not* to build.
 
-Frontend and backend live in a monorepo because chaos builds character.
+(Also somehow had 2 front-end folders )
 
----
+## Accomplishments that we're proud of
 
-# Hackathon stuff
+- A working end-to-end product that actually solves a real trust problem
+- A backend architecture that's clean, readable, and extensible
+- Successfully implementing claims + evidence instead of shallow reviews
+- Keeping the scope realistic while still ambitious
 
-Carify is an experiment in building car reputation without marketing bias.
+Most importantly: **we shipped something usable.**
 
-Most car rankings are influenced by brands, dealerships, or sponsored narratives. Carify flips that model by treating reputation as a collection of verifiable claims instead of opinions.
+Also gained experience with Solana!
 
-Each claim is tied to evidence, stored off-chain, and anchored with a cryptographic proof hash. Rather than asking users to trust a score, the system lets them inspect what was claimed, who claimed it, and what proof exists.
+## What we learned
 
-The goal is not to recommend cars, but to make reputation auditable.
+- Trust systems are harder than they look — simplicity matters
+- Clear API contracts save hours of frontend–backend pain
+- Hackathons reward execution more than perfection
+- Designing for transparency changes how you think about data
 
----
+## What's next for Carify
 
-## What Carify does
-
-- Lists cars by make, model, and year
-- Allows users to submit claims tied to a specific car
-- Supports evidence uploads (images or documents)
-- Anchors claims with cryptographic proof hashes
-- Separates reputation from brand influence and sponsored content
-
-There are no star ratings, paid boosts, or hidden weighting systems.
-
----
-
-## Technical overview
-
-- Next.js (App Router) frontend
-- Express + MongoDB backend
-- Evidence uploads served from the backend
-- Cryptographic proof anchoring (Solana integration stubbed)
-
-Frontend and backend are managed in a single monorepo.
-
----
-
-## Architecture
-
-/apps/web        → frontend (Next.js)
-/api             → backend (Express, MongoDB)
-/uploads         → stored evidence files
-
----
-
-## Running locally
-
-Backend:
-
-cd api  
-npm install  
-npm run dev  
-
-Frontend:
-
-cd apps/web  
-npm install  
-npm run dev  
-
-Environment variable:
-
-NEXT_PUBLIC_API_URL=http://localhost:4000
-
----
-
-## Why this matters
-
-Carify explores how reputation systems can be built around verifiability instead of persuasion.
-
-The same structure can apply to products, services, or any domain where trust is currently shaped by incentives rather than evidence.
-
----
-
-## Status
-
-Prototype built during a hackathon.  
-Actively iterated, intentionally opinionated, and designed to be extended.
-
-
+- Implementing reputation aggregation and ranking logic
+- Adding user credibility weighting over time
+- Improving visualization of trust signals and trends
+- Exploring decentralized identity or on-chain verification for claims
