@@ -30,6 +30,13 @@ app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
 });
+app.use((req, res, next) => {
+  if (req.method === "POST" && (req.url.includes("/claims") || req.url.includes("/cars/"))) {
+    console.log("🔥 POST HIT:", req.method, req.url);
+    console.log("🔥 BODY:", req.body);
+  }
+  next();
+});
 
 // ✅ routes
 app.use("/health", healthRouter);
@@ -50,6 +57,9 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 4000;
 
 async function start() {
+  console.log("🚨 STARTING BACKEND");
+console.log("MONGODB_URI =", process.env.MONGODB_URI);
+
   await connectDB(process.env.MONGODB_URI);
 
   app.listen(PORT, () => {

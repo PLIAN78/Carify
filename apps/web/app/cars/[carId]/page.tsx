@@ -1,153 +1,245 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { api, Car, Claim } from "@/lib/api";
-import { redirect } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { api, type Car, type Claim } from "@/lib/api";
 
+const RPC_URL =
+  process.env.NEXT_PUBLIC_SOLANA_RPC || "https://api.devnet.solana.com";
+
+function bytesToHex(bytes: Uint8Array) {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function sha256Hex(text: string) {
+  const enc = new TextEncoder();
+  const digest = await crypto.subtle.digest("SHA-256", enc.encode(text));
+  return bytesToHex(new Uint8Array(digest));
+}
+
+async function readPdaFirst32Hex(proofPda: string) {
+  const conn = new Connection(RPC_URL, "confirmed");
+  const info = await conn.getAccountInfo(new PublicKey(proofPda));
+  if (!info?.data || info.data.length < 32) throw new Error("PDA not found / invalid");
+  return bytesToHex(info.data.slice(0, 32));
+}
+
+type VerifyState =
+  | { status: "idle" }
+  | { status: "pending" }
+  | { status: "verified" }
+  | { status: "invalid"; reason: string };
 
 export default function CarDetailPage() {
-  // ✅ Next.js 16: useParams() instead of reading props.params
-  const params = useParams<{ carId: string }>();
-  const carId = params.carId;
+  const params = useParams();
+  const router = useRouter();
+  const carId = params.carId as string;
 
   const [car, setCar] = useState<Car | null>(null);
   const [claims, setClaims] = useState<Claim[]>([]);
+  const [verifyMap, setVerifyMap] = useState<Record<string, VerifyState>>({});
   const [explanation, setExplanation] = useState<string>("");
   const [loadingExplain, setLoadingExplain] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  
+
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string>("");
+
+  const carDisplayName = useMemo(() => {
+    if (!car) return "";
+    return `${car.year} ${car.make} ${car.model}`;
+  }, [car]);
+
+  async function loadAll() {
+    setLoading(true);
+    setErr("");
+    try {
+      const [c, cl] = await Promise.all([
+        api.getCar(carId),
+        api.getClaimsForCar(carId),
+      ]);
+      setCar(c.car);
+      setClaims(cl.claims);
+
+      const init: Record<string, VerifyState> = {};
+      for (const x of cl.claims) init[x._id] = { status: "idle" };
+      setVerifyMap(init);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to load car");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (!carId) return;
-
-    setErr(null);
-    api
-      .getCar(carId)
-      .then((r) => setCar(r.car))
-      .catch((e) => setErr(e.message));
-
-    api
-      .getClaims(carId)
-      .then((r) => setClaims(r.claims))
-      .catch((e) => setErr(e.message));
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carId]);
 
-  async function loadExplanation() {
-    if (!carId) return;
-
-    setLoadingExplain(true);
-    setErr(null);
+  async function verifyClaim(claim: Claim) {
     try {
-      const r = await api.explain(carId);
-      setExplanation(r.explanation);
+      if (!claim.solana?.proofPda) {
+        setVerifyMap((m) => ({ ...m, [claim._id]: { status: "invalid", reason: "No PDA" } }));
+        return;
+      }
+      if (!claim.canonical) {
+        setVerifyMap((m) => ({ ...m, [claim._id]: { status: "invalid", reason: "Missing canonical" } }));
+        return;
+      }
+
+      setVerifyMap((m) => ({ ...m, [claim._id]: { status: "pending" } }));
+
+      const payload = `${claim.canonical}${claim.solana.wallet}${claim.solana.nonce}`;
+      const expected = await sha256Hex(payload);
+      const onChain = await readPdaFirst32Hex(claim.solana.proofPda);
+
+      if (expected.toLowerCase() !== onChain.toLowerCase()) {
+        setVerifyMap((m) => ({ ...m, [claim._id]: { status: "invalid", reason: "Hash mismatch" } }));
+        return;
+      }
+
+      setVerifyMap((m) => ({ ...m, [claim._id]: { status: "verified" } }));
     } catch (e: any) {
-      setErr(e.message);
+      setVerifyMap((m) => ({ ...m, [claim._id]: { status: "invalid", reason: e?.message ?? "Verify error" } }));
+    }
+  }
+
+  async function generateExplanation() {
+    setLoadingExplain(true);
+    try {
+      const r = await api.explainCar(carId);
+      setExplanation(r.explanation || "");
+    } catch (e: any) {
+      setExplanation(e?.message ?? "Failed to generate");
     } finally {
       setLoadingExplain(false);
     }
   }
 
   return (
-    <div className="space-y-6">
-      <Link href="/" className="text-sm text-neutral-400 hover:text-white">
-        ← Back
-      </Link>
-
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-        <div className="text-2xl font-semibold">
-          {car ? `${car.year} ${car.make} ${car.model}` : carId}
-        </div>
-        <div className="mt-2 text-sm text-neutral-300">
-          Claims below are stored off-chain but anchored via proof hashes (and tx
-          when available).
+    <div className="p-6 space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold">{carDisplayName || "Car Details"}</h1>
+          <div className="text-sm text-neutral-400">
+            Car ID: <span className="font-mono text-neutral-200">{carId}</span>
+          </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
-            onClick={loadExplanation}
-            className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-neutral-200"
-            disabled={loadingExplain}
+            onClick={loadAll}
+            className="px-4 py-2 rounded-xl border border-neutral-700 hover:bg-neutral-900"
           >
-            {loadingExplain ? "Explaining..." : "Explain reputation (AI)"}
+            Refresh
           </button>
-
-          {/* ✅ pass carId through */}
-          <Link
-            href={`/submit?carId=${encodeURIComponent(carId)}`}
-            className="rounded-xl border border-neutral-700 px-4 py-2 text-sm text-neutral-200 hover:border-neutral-500"
+          <button
+            onClick={() => router.push(`/submit?carId=${encodeURIComponent(carId)}`)}
+            className="px-4 py-2 rounded-xl border border-neutral-700 hover:bg-neutral-900"
           >
-            Submit a claim
-          </Link>
+            Submit claim
+          </button>
+        </div>
+      </div>
+
+      {loading ? <div className="text-sm text-neutral-400">Loading…</div> : null}
+      {err ? <div className="text-sm text-red-400">{err}</div> : null}
+
+      {/* Explanation card */}
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-5 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-lg font-semibold">Explanation</div>
+          <div className="text-sm text-neutral-400 mt-1">
+            Click “Generate” to summarize claims + general knowledge (Gemini).
+          </div>
+
+          {explanation ? (
+            <div className="mt-3 text-sm text-neutral-200 whitespace-pre-wrap">
+              {explanation}
+            </div>
+          ) : null}
         </div>
 
-        {explanation && (
-          <pre className="mt-4 whitespace-pre-wrap rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm text-neutral-200">
-            {explanation}
-          </pre>
+        <button
+          onClick={generateExplanation}
+          disabled={loadingExplain}
+          className="px-4 py-2 rounded-xl border border-neutral-700 hover:bg-neutral-950 disabled:opacity-60"
+        >
+          {loadingExplain ? "Generating…" : "Generate"}
+        </button>
+      </div>
+
+      {/* Claims */}
+      <div className="space-y-3">
+        <h2 className="text-xl font-semibold">Claims</h2>
+
+        {claims.length === 0 ? (
+          <div className="text-neutral-500">
+            No claims yet. Be the first to submit one.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {claims.map((c) => {
+              const v = verifyMap[c._id] ?? { status: "idle" as const };
+              const hasPda = Boolean(c.solana?.proofPda);
+
+              return (
+                <div key={c._id} className="rounded-2xl border border-neutral-800 bg-neutral-900 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm text-neutral-400">
+                          {new Date(c.createdAt).toLocaleString()}
+                        </div>
+
+                        {v.status === "pending" ? (
+                          <div className="text-xs text-neutral-400">Verifying…</div>
+                        ) : v.status === "verified" ? (
+                          <div className="text-xs text-green-400 font-semibold">Verified ✓</div>
+                        ) : v.status === "invalid" ? (
+                          <div className="text-xs text-red-400">Invalid: {v.reason}</div>
+                        ) : null}
+                      </div>
+
+                      <div className="text-sm font-semibold">{c.category}</div>
+                      <div className="text-sm text-neutral-200 whitespace-pre-wrap">{c.statement}</div>
+                      <div className="text-sm text-neutral-400 whitespace-pre-wrap">{c.evidenceSummary}</div>
+
+                      <div className="text-xs text-neutral-500">
+                        by {c.contributor.displayName} ({c.contributor.type})
+                      </div>
+
+                      {hasPda ? (
+                        <div className="text-xs text-neutral-500 break-all">
+                          PDA: {c.solana?.proofPda}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-neutral-500">No on-chain proof yet.</div>
+                      )}
+                    </div>
+
+                    {hasPda ? (
+                      <button
+                        onClick={() => verifyClaim(c)}
+                        className="shrink-0 px-4 py-2 rounded-xl border border-neutral-700 hover:bg-neutral-950 text-sm"
+                      >
+                        Verify
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {err && (
-        <div className="rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-          {err}
-        </div>
-      )}
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Claims</h2>
-
-        {claims.length === 0 && (
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6 text-sm text-neutral-400">
-            No claims yet. Be the first to submit.
-          </div>
-        )}
-
-        <div className="grid gap-4">
-          {claims.map((c) => (
-            <div
-              key={(c as any)._id ?? (c as any).id ?? (c as any).proof?.hash ?? (c as any).statement}
-              className="rounded-2xl border border-neutral-800 bg-neutral-900 p-5"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-neutral-800 px-3 py-1 text-xs text-neutral-200">
-                  {(c as any).category ?? "claim"}
-                </span>
-                <span className="text-xs text-neutral-400">
-                  by {(c as any).contributor?.displayName ?? "anon"} (
-                  {(c as any).contributor?.type ?? "user"})
-                </span>
-                <span className="text-xs text-neutral-500">
-                  {new Date((c as any).createdAt).toLocaleString()}
-                </span>
-              </div>
-
-              <div className="mt-3 text-base font-medium">
-                {(c as any).statement ?? (c as any).text}
-              </div>
-              <div className="mt-2 text-sm text-neutral-300">
-                {(c as any).evidenceSummary ?? ""}
-              </div>
-
-              <div className="mt-4 grid gap-2 text-xs text-neutral-400">
-                <div>
-                  <span className="text-neutral-500">Proof hash:</span>{" "}
-                  <span className="font-mono text-neutral-200">
-                    {(c as any).proof?.hash ?? (c as any).claimHash ?? "pending"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-neutral-500">Solana tx:</span>{" "}
-                  <span className="font-mono text-neutral-200">
-                    {(c as any).proof?.solanaTx ?? (c as any).txSig ?? "pending"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="text-xs text-neutral-500">
+        RPC: {RPC_URL} • API: {api.baseUrl}
       </div>
     </div>
   );
-  
 }

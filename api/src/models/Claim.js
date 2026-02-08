@@ -14,11 +14,6 @@ const ClaimSchema = new mongoose.Schema(
     evidenceSummary: { type: String, required: true },
     evidenceUrl: { type: String, default: "" },
 
-    evidence: {
-      samples: { type: Number },
-      avgMileageKm: { type: Number },
-    },
-
     contributor: {
       type: {
         type: String,
@@ -26,12 +21,21 @@ const ClaimSchema = new mongoose.Schema(
         required: true,
       },
       displayName: { type: String, required: true },
-      wallet: { type: String },
+      wallet: { type: String, default: "" },
     },
 
+    canonical: { type: String, default: "" },
+
     proof: {
-      hash: { type: String },
-      solanaTx: { type: String },
+      hash: { type: String, default: "" },
+    },
+
+    solana: {
+      programId: { type: String, default: "" },
+      proofPda: { type: String, default: "" },
+      txSignature: { type: String, default: "" },
+      nonce: { type: Number, default: 0 },
+      wallet: { type: String, default: "" },
     },
   },
   { timestamps: true }
