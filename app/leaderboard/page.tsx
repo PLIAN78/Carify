@@ -1,5 +1,5 @@
 export default async function LeaderboardPage() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ""}/api/cars`, {
+  const res = await fetch("http://localhost:3000/api/cars", {
     cache: "no-store",
   });
   const { cars } = await res.json();
@@ -7,7 +7,7 @@ export default async function LeaderboardPage() {
   return (
     <main className="max-w-3xl mx-auto p-6">
       <h1 className="text-3xl font-bold">Carify</h1>
-      <p className="text-sm text-gray-500 mt-1">
+      <p className="text-sm text-gray-500">
         Evidence-weighted car reputation
       </p>
 
@@ -22,7 +22,7 @@ export default async function LeaderboardPage() {
               {c.make} {c.model} ({c.year})
             </div>
             <div className="text-sm text-gray-600">
-              Carify Score: coming next
+              Score: coming soon
             </div>
           </a>
         ))}
